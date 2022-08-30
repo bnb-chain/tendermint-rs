@@ -243,7 +243,7 @@ impl RangeProofVerifier {
             Ok(index) => index,
             Err(index) => index,
         };
-        let elemant = leaves.get(i).unwrap();
+        let elemant = leaves.get(i).ok_or_else(|| "not found by index")?;
         if i >= leaves.len() || !elemant.key.eq(&key) {
             return Err("leaf key not found in proof");
         }
