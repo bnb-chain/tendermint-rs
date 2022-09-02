@@ -185,8 +185,10 @@ impl TmHeaderVerifier {
                 .validators_hash,
             next_validator_set,
         };
+        let new_next_validator_set_hash = TmHeaderVerifier::hash_validator_vec(&new_cs.next_validator_set)?;
+        let next_validator_set_hash = TmHeaderVerifier::hash_validator_vec(&cs.next_validator_set)?;
         let validator_set_changed = new_cs.cur_validator_set_hash != cs.cur_validator_set_hash
-            || TmHeaderVerifier::hash_validator_vec(&new_cs.next_validator_set) != TmHeaderVerifier::hash_validator_vec(&cs.next_validator_set);
+            || new_next_validator_set_hash != next_validator_set_hash;
         let cs_bytes = new_cs.encode()?;
         if validator_set_changed {
             output.write(0, &[1_u8]);
@@ -214,7 +216,7 @@ impl TmHeaderVerifier {
             })
             .collect();
 
-        let trust_next_validators_hash = simple_hash_from_byte_vectors(validator_bytes);
+        let trust_next_validators_hash = simple_hash_from_byte_vectors(validator_bytes)?;
         if light_block
             .signed_header
             .as_ref()
@@ -231,7 +233,7 @@ impl TmHeaderVerifier {
     }
     fn validator_sets_match(light_block: &LightBlock) -> Result<(), &'static str> {
         let validators_hash =
-            TmHeaderVerifier::hash_validator_set(&light_block.validator_set.as_ref().unwrap());
+            TmHeaderVerifier::hash_validator_set(&light_block.validator_set.as_ref().unwrap())?;
 
         if light_block
             .signed_header
@@ -250,7 +252,7 @@ impl TmHeaderVerifier {
 
     fn next_validators_match(light_block: &LightBlock) -> Result<(), &'static str> {
         let next_validators_hash =
-            TmHeaderVerifier::hash_validator_set(&light_block.next_validator_set.as_ref().unwrap());
+            TmHeaderVerifier::hash_validator_set(&light_block.next_validator_set.as_ref().unwrap())?;
 
         if light_block
             .signed_header
@@ -269,7 +271,7 @@ impl TmHeaderVerifier {
     }
 
     /// Compute the Merkle root of the validator set
-    fn hash_validator_set(validator_set: &ValidatorSet) -> Hash {
+    fn hash_validator_set(validator_set: &ValidatorSet) -> Result<Hash, &'static str> {
         let validator_bytes: Vec<Vec<u8>> = validator_set
             .validators
             .iter()
@@ -288,7 +290,7 @@ impl TmHeaderVerifier {
     }
 
     /// Compute the Merkle root of the validator vec
-    fn hash_validator_vec(validators: &Vec<Validator>) -> Hash {
+    fn hash_validator_vec(validators: &Vec<Validator>) -> Result<Hash, &'static str> {
         let validator_bytes: Vec<Vec<u8>> = validators
             .iter()
             .map(|validator| {
@@ -305,7 +307,7 @@ impl TmHeaderVerifier {
         simple_hash_from_byte_vectors(validator_bytes)
     }
 
-    fn hash_header(sh: &SignedHeader) -> Hash {
+    fn hash_header(sh: &SignedHeader) -> Result<Hash, &'static str> {
         let header = sh.header.as_ref().unwrap();
         let mut fields_bytes: Vec<Vec<u8>> = Vec::with_capacity(14);
         fields_bytes.push({
@@ -451,7 +453,7 @@ impl TmHeaderVerifier {
     }
 
     fn header_matches_commit(signed_header: &SignedHeader) -> Result<(), &'static str> {
-        let header_hash = TmHeaderVerifier::hash_header(&signed_header);
+        let header_hash = TmHeaderVerifier::hash_header(&signed_header)?;
 
         if header_hash.to_vec()
             != signed_header
@@ -648,7 +650,7 @@ impl TmHeaderVerifier {
         ) as usize;
         let input_length: usize = input.len();
         if input_length <= CONSENSUS_STATE_LENGTH_BYTES_LENGTH + cs_len {
-            panic!("invalid consensus length")
+            return Err("invalid consensus length");
         }
         let cs = TmHeaderVerifier::decode_consensus_state(
             &input

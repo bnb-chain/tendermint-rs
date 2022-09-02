@@ -232,7 +232,7 @@ impl MultiStoreProofVerifier {
             })
             .collect();
 
-        Ok(simple_hash_from_byte_vectors(kvs_bytes))
+        simple_hash_from_byte_vectors(kvs_bytes)
     }
 }
 
